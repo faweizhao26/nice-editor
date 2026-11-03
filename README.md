@@ -43,14 +43,26 @@ npm run build        # 构建静态站点到 out/
 npm run typecheck    # 类型检查
 ```
 
-### 部署到 GitHub Pages
+### 部署到 GitHub Pages（本项目实际的部署方式）
 
-`output: "export"` 产出 `out/`，`.github/workflows/deploy.yml` 会在 push 到 `main` 时
-自动构建并发布。**项目站点（`https://<user>.github.io/<repo>/`）必须设置 basePath**，
-否则 `/_next/...` 会 404；工作流里通过 `actions/configure-pages` 的输出自动传入：
+线上地址：**https://faweizhao26.github.io/nice-editor/**
+
+用的是 **gh-pages 分支**模式，不是 `actions/deploy-pages`：
+
+- 推 `main` → 工作流 `npm ci` + `BASE_PATH=/nice-editor npm run build` → 把 `out/`
+  以孤儿提交强推到 `gh-pages` 分支 → Pages 自动重建。
+- **为什么不用 `actions/deploy-pages`**：新建仓库首次启用 Pages 需要管理员权限，
+  工作流里的 `GITHUB_TOKEN` 会以 `Create Pages site failed. Error: Resource not
+  accessible by integration` 失败，即使 `configure-pages` 加了 `enablement: true`。
+  而**把产物推到 `gh-pages` 分支，GitHub 会自己把 Pages 打开**（实测新建空仓库也生效），
+  一个键都不用点。
+- 产物分支带 `.nojekyll`，避免 Jekyll 吞掉 `_next/`。
+
+**项目站点（`https://<user>.github.io/<repo>/`）必须设 basePath**，否则 `/_next/...` 会 404。
+工作流里从 `github.event.repository.name` 取，本地想模拟时手动给：
 
 ```bash
-BASE_PATH=/nice-editor npm run build     # 本地想模拟项目站点时
+BASE_PATH=/nice-editor npm run build     # 模拟项目站点
 npm run build                            # 根路径部署（Vercel / 自定义域名）留空即可
 ```
 
@@ -60,6 +72,12 @@ npm run build                            # 根路径部署（Vercel / 自定义�
 mkdir -p /tmp/pages-root/nice-editor && cp -R out/. /tmp/pages-root/nice-editor/
 cd /tmp/pages-root && python3 -m http.server 4322
 # 打开 http://127.0.0.1:4322/nice-editor/
+```
+
+`deploy.sh` 是换仓库/首次部署用的一键脚本：
+
+```bash
+./deploy.sh <owner>/<repo>    # 本地先校验构建，再配 remote 并推送
 ```
 
 ---

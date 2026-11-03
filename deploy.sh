@@ -7,8 +7,8 @@
 # 前置条件：
 #   1. 仓库已经在 GitHub 上建好了（空的、不要勾 README）；
 #   2. 你的 SSH key 对该仓库有 push 权限（本机 SSH 身份是 faweizhao26）；
-#   3. Pages 不用手动开 —— 工作流里的 actions/configure-pages 带 enablement: true
-#      会自己把 Source 设成 GitHub Actions。
+#   3. Pages 不用手动开：把构建产物推到 gh-pages 分支，GitHub 会自己把 Pages
+#      打开（source = gh-pages）。实测新建仓库也生效，无需去 Settings 点。
 #
 set -euo pipefail
 
@@ -26,7 +26,7 @@ cd "$ROOT"
 echo "▸ 仓库: $REPO   分支: $BRANCH   basePath: /$NAME"
 
 # 1) 本地先按项目站点的方式构建一次，确认 basePath 下能跑
-echo "▸ 本地校验构建（BASE_PATH=/$NAME）…"
+echo "▸ 本地校验构建（BASE_PATH=/${NAME}）…"
 BASE_PATH="/$NAME" npm run build >/dev/null
 echo "  ✓ 构建通过"
 
@@ -42,8 +42,8 @@ echo "▸ 推送到 git@github.com:$REPO.git …"
 git push -u origin "$BRANCH"
 
 echo
-echo "✓ 推送完成。GitHub Actions 会自动构建并发布，进度见："
+echo "✓ 推送完成。GitHub Actions 会构建并推到 gh-pages 分支，进度见："
 echo "  https://github.com/$REPO/actions"
 echo
 echo "发布后地址： https://${REPO%%/*}.github.io/$NAME/"
-echo "（首次跑完大约 1～2 分钟；仓库还没开 Pages 时工作流会自动开）"
+echo "（首次跑完大约 1～2 分钟）"

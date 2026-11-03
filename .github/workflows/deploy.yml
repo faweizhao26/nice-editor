@@ -1,21 +1,23 @@
-name: Deploy to GitHub Pages
+name: Build and deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# 只用内置 token 把产物推到 gh-pages 分支，不依赖第三方 action。
+# 注意：不能走 actions/deploy-pages 那套 —— 本仓库的 Pages 是「分支」模式
+# （source = gh-pages），configure-pages 会以 "Resource not accessible by
+# integration" 失败，因为新建仓库首次开 Pages 需要管理员权限。
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -25,34 +27,24 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
-        with:
-          # 自动把仓库的 Pages 打开（Source = GitHub Actions），
-          # 这样建完空仓库就不用再去 Settings 里手点
-          enablement: true
-
       - run: npm ci
 
       - name: Build
-        # 项目站点的 basePath 由 configure-pages 给出（形如 /nice-editor）
+        # 项目站点挂在 /<repo>/ 下，必须给 basePath，否则 /_next/... 会 404
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages
+        # 用孤儿提交覆盖 gh-pages，产物分支不需要历史
+        run: |
+          cd out
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "deploy: ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
