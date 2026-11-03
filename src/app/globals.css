@@ -859,8 +859,11 @@ button {
   transition: width 0.18s ease;
 }
 .preview-stage-phone {
+  /* 375px 是真机宽度，别被窗口挤窄 —— 挤窄了预览就不是「手机所见」了。
+     窗口不够宽时横向滚动（和 PC 预览同样的处理）。 */
   width: 375px;
-  max-width: 100%;
+  max-width: none;
+  flex: 0 0 auto;
 }
 .preview-stage-pc {
   width: 677px;
@@ -1094,6 +1097,11 @@ button {
   }
   .preview-stage-pc {
     width: 677px;
+  }
+  /* 真·手机上（窗口本身就这么窄）不能让预览横向溢出，只能让它缩 */
+  .preview-stage-phone {
+    width: 100%;
+    max-width: 100%;
   }
   .workbench.is-pc .pane-editor {
     flex: 0 1 auto;
