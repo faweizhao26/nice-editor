@@ -849,6 +849,11 @@ button {
   overflow: auto;
   padding: 20px 22px 0;
 }
+/* 手机预览的卡片是固定 375px，两侧内边距收窄一点让它尽量完整可见，
+   少一次横向滚动 */
+.preview-scroll:has(.preview-stage-phone) {
+  padding: 20px 12px 0;
+}
 
 .preview-stage {
   margin: 0 auto;
