@@ -253,19 +253,29 @@ function escapeHtml(str: string): string {
 
 /**
  * 只对文本节点做空白替换，避免把标签内的空格也换掉（那会直接破坏 HTML）。
+ *
+ * 关键取舍：**只有连续 2 个以上空格（缩进、对齐）才转 `&nbsp;`，
+ * 单词之间的单个空格保留成普通空格**。
+ * 全都转 `&nbsp;` 的话，代码行里就没有任何可换行的位置了 —— 手机上
+ * 一行 60 字符的代码必然放不下，浏览器只能在任意字符处硬断（配合
+ * `word-break: break-all` 就是拦腰截断 `registry.high` / `go.com`）。
+ * 留出单空格作为换行点后，长行会在词与词之间正常折行。
  */
 export function toWeChatCode(html: string): string {
+  const keepIndent = (ws: string) => ws.replace(/ /g, "&nbsp;").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+
   return html
     .split(/(<span[^>]*>|<\/span>)/)
-    .map((part) =>
-      part.startsWith("<")
-        ? part
-        : part
-            .replace(/ {2}/g, "&nbsp;&nbsp;")
-            .replace(/ /g, "&nbsp;")
-            .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
-            .replace(/\n/g, "<br/>"),
-    )
+    .map((part) => {
+      if (part.startsWith("<")) return part;
+      return part
+        // 行首缩进（含单空格缩进）整段保住
+        .replace(/(^|\n)([ \t]+)/g, (_m, brk: string, ws: string) => brk + keepIndent(ws))
+        // 行内连续空格：对齐用，保住
+        .replace(/ {2,}/g, (m) => "&nbsp;".repeat(m.length))
+        .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
+        .replace(/\n/g, "<br/>");
+    })
     .join("");
 }
 

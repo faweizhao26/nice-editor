@@ -83,7 +83,11 @@ export const BASE_CSS = `
   font-size: 13px;
   line-height: 1.7;
   white-space: normal;
-  word-break: break-all;
+  /* 代码内容里的缩进/对齐已经转成 &nbsp;，词间是普通空格。
+     这里用 normal 让长行在空格处正常折行；只有单个超长 token（URL 之类）
+     才用 overflow-wrap 强制断开。用 break-all 会把正常代码拦腰截断。 */
+  word-break: normal;
+  overflow-wrap: break-word;
   background: none;
   padding: 0;
   border: none;
