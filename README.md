@@ -273,6 +273,23 @@ npm run gen:code-themes
   压窄就失去「所见即所得」的意义了。建议把窗口拉宽或收起左侧面板。
 - 复杂公式（`\ce{}`、`\require{}` 等 TeX 扩展）依赖 MathJax 默认扩展集，个别宏包可能不支持。
 
+## 八·一、界面明暗模式
+
+界面外壳（面板、编辑器、状态栏）**跟随系统的 `prefers-color-scheme`**，没有手动切换开关。
+系统是深色模式时，整个界面就是深色的，写 Markdown 的那一栏也是深底浅字。
+
+两个容易踩的点，都已修好并留了注释：
+
+- `@uiw/react-codemirror` 的 `theme` 属性**默认是 `'light'`**，会往 `.cm-editor` 注入
+  `background-color: #fff`，且排在我们自己的扩展之后 —— 同优先级下它赢。深色模式下
+  编辑器就会变成白底，而文字用 `var(--fg)`（浅色）→ 白底浅字，正文完全看不清。
+  所以 `MdEditor` 里必须显式传 `theme="none"`。
+- CodeMirror 的内置配色（选区、光标、补全弹层）由 `darkTheme` facet 决定，不设就永远
+  走浅色那套。用 `darkThemeCompartment` 配合 `matchMedia` 的 `change` 事件实时切换。
+
+想让界面不跟系统走，把 `globals.css` 里 `@media (prefers-color-scheme: dark)` 那一段
+的变量删掉或改成固定值即可。
+
 ## 九、许可
 
 代码为本次复刻新写。其中：
