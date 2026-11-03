@@ -28,6 +28,10 @@ jobs:
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # 自动把仓库的 Pages 打开（Source = GitHub Actions），
+          # 这样建完空仓库就不用再去 Settings 里手点
+          enablement: true
 
       - run: npm ci
 
