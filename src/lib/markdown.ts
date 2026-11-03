@@ -254,24 +254,26 @@ function escapeHtml(str: string): string {
 /**
  * 只对文本节点做空白替换，避免把标签内的空格也换掉（那会直接破坏 HTML）。
  *
- * 关键取舍：**只有连续 2 个以上空格（缩进、对齐）才转 `&nbsp;`，
+ * 关键取舍：**只有连续 2 个以上空格（缩进、对齐）和制表符才转 `&nbsp;`，
  * 单词之间的单个空格保留成普通空格**。
- * 全都转 `&nbsp;` 的话，代码行里就没有任何可换行的位置了 —— 手机上
- * 一行 60 字符的代码必然放不下，浏览器只能在任意字符处硬断（配合
- * `word-break: break-all` 就是拦腰截断 `registry.high` / `go.com`）。
- * 留出单空格作为换行点后，长行会在词与词之间正常折行。
+ *
+ * 为什么不能全转：代码行里就没有任何可换行的位置了 —— 手机上（内容区约 340px）
+ * 一行 60 字符的代码必然放不下，浏览器只能在任意字符处硬断，表现就是
+ * `registry.high` / `go.com` 这种拦腰截断。留出单空格作为换行点后，
+ * 长行会在词与词之间正常折行。
+ *
+ * ⚠️ 不要在这里判断「行首缩进」：本函数是**按 `<span>` 切开后逐段调用**的，
+ * 段落开头那个空格并不等于代码行的行首（例如 `interface</span> <span>Theme`
+ * 中间那个空格会自成一个片段）。用 `^` 判断行首会把这种词间空格也转成
+ * `&nbsp;`，反而把换行点干掉。缩进本来就不会只有一个空格，靠 ` {2, }` 足够。
  */
 export function toWeChatCode(html: string): string {
-  const keepIndent = (ws: string) => ws.replace(/ /g, "&nbsp;").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
-
   return html
     .split(/(<span[^>]*>|<\/span>)/)
     .map((part) => {
       if (part.startsWith("<")) return part;
       return part
-        // 行首缩进（含单空格缩进）整段保住
-        .replace(/(^|\n)([ \t]+)/g, (_m, brk: string, ws: string) => brk + keepIndent(ws))
-        // 行内连续空格：对齐用，保住
+        // 连续空格：缩进与对齐用，保住（微信不会折叠 &nbsp;）
         .replace(/ {2,}/g, (m) => "&nbsp;".repeat(m.length))
         .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;")
         .replace(/\n/g, "<br/>");
