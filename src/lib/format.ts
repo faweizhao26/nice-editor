@@ -116,3 +116,41 @@ export const FORMAT_PRESETS: FormatPreset[] = [
   { id: "indent", name: "首行缩进", format: { fontSize: 16, lineHeight: 1.9, letterSpacing: 0.6, wordSpacing: 1, paragraphSpacing: 12, textIndent: 2, padding: 12, textAlign: "left" } },
   { id: "justify", name: "两端对齐", format: { fontSize: 16, lineHeight: 1.8, letterSpacing: 0.4, wordSpacing: 1, paragraphSpacing: 14, textIndent: 0, padding: 12, textAlign: "justify" } },
 ];
+
+/* ------------------------------------------------------------------ *
+ * 颜色对比度
+ *
+ * 存在的意义：格式层的颜色会覆盖主题，而取色器永远有一个具体值，
+ * 很容易点出一个「浅底浅字」的组合（暗色主题尤其容易），预览里一眼看不出来，
+ * 复制到公众号才发现整篇看不清。这里用来在面板上提前提醒。
+ * ------------------------------------------------------------------ */
+
+/** 解析 #rgb / #rrggbb，返回 WCAG 相对亮度；解析不了返回 null */
+function relativeLuminance(color: string): number | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return null;
+  let hex = m[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const n = parseInt(hex, 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * 两色对比度，1~21。正文建议 >= 4.5，大字/图形 >= 3。
+ * 颜色写成 `red` 这种解析不了的形式时返回 null，调用方跳过提示即可。
+ */
+export function contrastRatio(a: string, b: string): number | null {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  if (la === null || lb === null) return null;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}

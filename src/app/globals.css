@@ -407,6 +407,22 @@ button {
 .ui-color .ui-input {
   max-width: 96px;
 }
+
+/* 颜色对比度过低时的提醒（格式面板） */
+.ui-warn {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--danger);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ui-warn b {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 600;
+}
 .ui-mini {
   width: 22px;
   height: 22px;

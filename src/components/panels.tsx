@@ -1,8 +1,8 @@
 "use client";
 
 import { useEditor, type PanelId } from "@/store/editor";
-import { ALL_THEMES, CODE_THEMES } from "@/lib/themes";
-import { FORMAT_PRESETS, FONT_STACKS, type FormatState } from "@/lib/format";
+import { ALL_THEMES, CODE_THEMES, getTheme } from "@/lib/themes";
+import { FORMAT_PRESETS, FONT_STACKS, contrastRatio, type FormatState } from "@/lib/format";
 import { Btn, BtnRow, ColorField, Empty, Field, Section, SelectField, SliderField, Toggle } from "./ui";
 
 export interface PanelActions {
@@ -125,6 +125,25 @@ function FormatPanel() {
   const setFormat = useEditor((s) => s.setFormat);
   const patch = useEditor((s) => s.patch);
   const linkToFoot = useEditor((s) => s.linkToFoot);
+  const themeId = useEditor((s) => s.themeId);
+  const theme = getTheme(themeId);
+
+  /**
+   * 「跟随主题」时（值为空）取色器必须显示**当前主题的真实颜色**。
+   * 否则暗色主题下会显示写死的浅色兜底值（页面底色显示 #ffffff），
+   * 用户点一下确认就把主题底色冲成白的，而正文仍是主题的浅色 —— 白底浅字，
+   * 预览里看不出来，复制到公众号才发现整篇看不清。
+   */
+  const themeBg = theme.bodyBg ?? "#ffffff";
+  const effectiveBg = format.bodyBg || themeBg;
+  const effectiveFg = format.color || theme.text;
+  const contrast = contrastRatio(effectiveFg, effectiveBg);
+  const lowContrast = contrast !== null && contrast < 4.5;
+  const anyColorOverride = !!(format.color || format.headingColor || format.accent || format.bodyBg);
+
+  /** 用户选中的正好是主题自己的颜色 → 当作「跟随主题」，不写死成覆盖值 */
+  const clearIfTheme = (v: string, themeColor: string) =>
+    v.trim().toLowerCase() === themeColor.trim().toLowerCase() ? "" : v;
 
   return (
     <>
@@ -183,11 +202,24 @@ function FormatPanel() {
         ) : null}
       </Section>
 
-      <Section title="颜色" desc="留空表示跟随主题。">
-        <ColorField label="正文颜色" value={format.color} onChange={(v) => setFormat({ color: v })} fallback="#2b2b2b" />
-        <ColorField label="标题颜色" value={format.headingColor} onChange={(v) => setFormat({ headingColor: v })} fallback="#1a1a1a" />
-        <ColorField label="主题色" value={format.accent} onChange={(v) => setFormat({ accent: v })} />
-        <ColorField label="页面底色" value={format.bodyBg} onChange={(v) => setFormat({ bodyBg: v })} fallback="#ffffff" />
+      <Section title="颜色" desc="留空表示跟随主题；取色器里显示的就是当前主题的实际颜色。">
+        <ColorField label="正文颜色" value={format.color} fallback={theme.text} onChange={(v) => setFormat({ color: clearIfTheme(v, theme.text) })} />
+        <ColorField label="标题颜色" value={format.headingColor} fallback={theme.heading} onChange={(v) => setFormat({ headingColor: clearIfTheme(v, theme.heading) })} />
+        <ColorField label="主题色" value={format.accent} fallback={theme.accent} onChange={(v) => setFormat({ accent: clearIfTheme(v, theme.accent) })} />
+        <ColorField label="页面底色" value={format.bodyBg} fallback={themeBg} onChange={(v) => setFormat({ bodyBg: clearIfTheme(v, themeBg) })} />
+
+        {lowContrast ? (
+          <p className="ui-warn">
+            当前正文是 <b>{effectiveFg}</b>、底色是 <b>{effectiveBg}</b>，对比度只有{" "}
+            <b>{contrast!.toFixed(1)}:1</b>（正文建议 ≥ 4.5），会看不清。
+          </p>
+        ) : null}
+
+        {anyColorOverride ? (
+          <BtnRow>
+            <Btn onClick={() => setFormat({ color: "", headingColor: "", accent: "", bodyBg: "" })}>全部恢复跟随主题</Btn>
+          </BtnRow>
+        ) : null}
       </Section>
 
       <Section title="微信">
