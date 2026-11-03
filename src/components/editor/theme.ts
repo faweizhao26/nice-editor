@@ -1,7 +1,22 @@
 import { EditorView } from "@codemirror/view";
-import type { Extension } from "@codemirror/state";
+import { Compartment, type Extension } from "@codemirror/state";
 
-/** 编辑器外观：跟着 App 的暗色主题走，尽量不抢视线 */
+/**
+ * 编辑器外观。
+ *
+ * ⚠️ 两个必须注意的点：
+ *
+ * 1. `@uiw/react-codemirror` 的 `theme` 属性**默认是 `'light'`**，它会在我们的
+ *    扩展之后注入一条 `.cm-editor { background-color: #fff }`。两条规则优先级相同
+ *    （都是单 class），它排后面所以它赢 —— 深色模式下编辑器会变成白底，而文字用
+ *    的是 `var(--fg)`（深色模式下是浅色 `#e6e8eb`），结果就是白底浅字，完全看不清。
+ *    所以组件里必须传 `theme="none"`，让样式完全由这里控制。
+ *
+ * 2. CodeMirror 自己的默认配色（选区、光标、自动补全弹层等）由 `darkTheme` facet 决定，
+ *    不设的话永远走浅色那套。用 `darkThemeCompartment` 跟着系统的明暗模式切换。
+ */
+export const darkThemeCompartment = new Compartment();
+
 export const editorTheme = EditorView.theme({
   "&": {
     height: "100%",

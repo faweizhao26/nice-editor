@@ -6,7 +6,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 
-import { editorTheme, markdownHighlight } from "./editor/theme";
+import { editorTheme, darkThemeCompartment, markdownHighlight } from "./editor/theme";
 import {
   insertCodeBlock,
   insertHr,
@@ -36,10 +36,29 @@ export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * 让 CodeMirror 的默认配色（选区、光标、补全弹层）跟着系统的明暗模式走。
+   * 不设这个 facet 的话它永远用浅色那套，在深色界面里会显得很突兀。
+   */
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = (isDark: boolean) => {
+      ref.current?.view?.dispatch({
+        effects: darkThemeCompartment.reconfigure(EditorView.darkTheme.of(isDark)),
+      });
+    };
+    apply(mq.matches);
+    const onSchemeChange = (e: MediaQueryListEvent) => apply(e.matches);
+    mq.addEventListener("change", onSchemeChange);
+    return () => mq.removeEventListener("change", onSchemeChange);
+  }, []);
+
   const extensions = useMemo(
     () => [
       markdown({ base: markdownLanguage }),
       EditorView.lineWrapping,
+      // 初始值无所谓，挂载后上面的 effect 会按系统配色重新配置
+      darkThemeCompartment.of(EditorView.darkTheme.of(false)),
       editorTheme,
       markdownHighlight,
       Prec.high(
@@ -79,6 +98,8 @@ export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot }:
   );
 
   return (
+    // theme="none" 是必须的：默认值 'light' 会注入 `.cm-editor{background:#fff}`，
+    // 深色模式下把编辑器刷成白底、而文字是浅色的，直接看不清。
     <CodeMirror
       ref={ref}
       className="md-editor"
@@ -86,6 +107,7 @@ export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot }:
       height="100%"
       extensions={extensions}
       onChange={onChange}
+      theme="none"
       basicSetup={{
         lineNumbers: false,
         foldGutter: false,
