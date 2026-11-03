@@ -43,7 +43,24 @@ npm run build        # 构建静态站点到 out/
 npm run typecheck    # 类型检查
 ```
 
-部署：`output: "export"`，`out/` 目录直接丢到 Vercel / Netlify / 任意静态托管即可。
+### 部署到 GitHub Pages
+
+`output: "export"` 产出 `out/`，`.github/workflows/deploy.yml` 会在 push 到 `main` 时
+自动构建并发布。**项目站点（`https://<user>.github.io/<repo>/`）必须设置 basePath**，
+否则 `/_next/...` 会 404；工作流里通过 `actions/configure-pages` 的输出自动传入：
+
+```bash
+BASE_PATH=/nice-editor npm run build     # 本地想模拟项目站点时
+npm run build                            # 根路径部署（Vercel / 自定义域名）留空即可
+```
+
+想本地验证「挂在子路径下」的效果：
+
+```bash
+mkdir -p /tmp/pages-root/nice-editor && cp -R out/. /tmp/pages-root/nice-editor/
+cd /tmp/pages-root && python3 -m http.server 4322
+# 打开 http://127.0.0.1:4322/nice-editor/
+```
 
 ---
 
@@ -111,6 +128,26 @@ src/
 - 导出 `.md`、导出**已内联样式的独立 HTML**（双击可看，也能贴进别的 CMS）
 - 打印 / 导出 PDF（只打印正文，自动隐藏全部界面）
 - 本地草稿：保存 / 打开 / 删除，最多 50 篇
+- **分享链接**：把正文 + 主题 + 格式压进 URL 发给同事，点开即恢复
+
+---
+
+## 四·一、分享链接怎么工作
+
+「文件」面板 → **复制分享链接**，得到形如
+`https://…/nice-editor/#d=N4IgxiBcIMQASCJrQc…` 的地址。
+
+- 内容放在 **fragment（`#` 后面）**，浏览器不会把它发给服务器 —— 纯静态站点没有后端，
+  文章也永远不会落到 GitHub Pages 的日志里。
+- 正文 + 标题 + 主题 + 代码主题 + 自定义 CSS + 格式微调一起编码；**只写非默认值**，
+  链接能短一截是一截。
+- 压缩用 lz-string。它的字母表含 `+` 和 `$`，直接 `encodeURIComponent` 会把链接撑大约 2%，
+  所以改成等长替换（`+`→`.`、`$`→`_`），结果全落在 URL 安全字符集内，
+  任何聊天工具都不会改写。
+- 打开分享链接后，**hash 由 `src/app/layout.tsx` 里的一段引导脚本在 React 之前清掉**。
+  这一点很关键：如果用 `useEffect` 清，Next 的路由器会在 hydration 时把 hash 写回去，
+  刷新页面就会反复用分享内容覆盖你已经编辑过的正文。
+- 长度参考：1700 字的中文文章 → 链接约 2700 字符；超过 8000 字符会提示改用 `.md` 文件。
 
 ---
 
@@ -176,7 +213,9 @@ npm run gen:code-themes
 
 - **没有图床**：图片需要自己填外链地址。要做的话在 `MdEditor` 的粘贴/拖拽回调里加
   一个上传适配器，把返回的 URL 插进选区即可。
-- **没有账号体系**：草稿只在本机浏览器里，换设备不同步。
+- **没有账号体系**：草稿只在本机浏览器里，换设备不同步。同事之间传文章用「分享链接」或导出的 `.md`。
+- **手机是「能看」级别**：面板默认收起、复制条挪到屏幕底部，但没有做「编辑/预览分页签」那套完整响应式。
+  写文章建议还是在电脑上。
 - **MathJax 只在文档里出现 `$` 公式时才加载**（约 870KB，首屏不受影响）。
 - **PC 预览是固定 677px**：窗口不够宽时预览区横向滚动，而不是把预览压窄——
   压窄就失去「所见即所得」的意义了。建议把窗口拉宽或收起左侧面板。

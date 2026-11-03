@@ -7,7 +7,9 @@
  */
 
 const SCRIPT_ID = "nice-mathjax-script";
-const SCRIPT_SRC = "/mathjax/tex-svg-nofont.js";
+/** GitHub Pages 项目站点挂在 /<repo>/ 下，静态资源路径要带上 basePath */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const SCRIPT_SRC = `${BASE_PATH}/mathjax/tex-svg-nofont.js`;
 
 let loading: Promise<boolean> | null = null;
 

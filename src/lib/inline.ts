@@ -193,6 +193,18 @@ export async function copyRichText(html: string, plainText?: string): Promise<bo
   return legacyCopy(html, text);
 }
 
+/** 复制纯文本（分享链接这类） */
+export async function copyPlainText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    /* 落到 execCommand 分支 */
+  }
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return legacyCopy(escaped, text);
+}
+
 function legacyCopy(html: string, text: string): boolean {
   let input = document.getElementById("nice-copy-input") as HTMLInputElement | null;
   if (!input) {

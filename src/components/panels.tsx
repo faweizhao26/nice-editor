@@ -13,6 +13,7 @@ export interface PanelActions {
   onFormatDoc: () => void;
   onLinkToFoot: () => void;
   onClear: () => void;
+  onShare: () => void;
   onCopy: (target: "wechat" | "zhihu" | "juejin" | "csdn") => void;
 }
 
@@ -224,6 +225,17 @@ function FilePanel({ actions }: { actions: PanelActions }) {
           <Btn onClick={actions.onExportMd}>.md</Btn>
           <Btn onClick={actions.onExportHtml}>独立 HTML</Btn>
           <Btn onClick={actions.onPrint}>打印 / PDF</Btn>
+        </BtnRow>
+      </Section>
+
+      <Section
+        title="分享给同事"
+        desc="把正文、主题、格式一起压进链接。链接不会发给服务器（在 # 后面），点开即恢复原文。"
+      >
+        <BtnRow>
+          <Btn variant="primary" full onClick={actions.onShare}>
+            复制分享链接
+          </Btn>
         </BtnRow>
       </Section>
 

@@ -19,4 +19,6 @@ interface Window {
     options?: unknown;
     [key: string]: unknown;
   };
+  /** 引导脚本从 `#d=…` 摘下来、待编辑器读取的分享内容 */
+  __NICE_SHARE__?: string;
 }

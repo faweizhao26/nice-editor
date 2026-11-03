@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { DEFAULT_FORMAT, type FormatState } from "@/lib/format";
 import { SAMPLE_MARKDOWN } from "@/lib/sample";
+import type { ShareDoc } from "@/lib/share";
 import {
   DEFAULT_SETTINGS,
   type Draft,
@@ -36,6 +37,7 @@ interface EditorStore extends Settings {
   closePanel: () => void;
   newDocument: () => void;
   loadSample: () => void;
+  loadShared: (doc: ShareDoc) => void;
   saveDraft: () => void;
   openDraft: (id: string) => void;
   removeDraft: (id: string) => void;
@@ -108,6 +110,19 @@ export const useEditor = create<EditorStore>((set, get) => ({
 
   loadSample: () => {
     set({ title: "示例文档", content: SAMPLE_MARKDOWN, renderTick: get().renderTick + 1 });
+    persist(get);
+  },
+
+  loadShared: (doc) => {
+    set({
+      title: doc.title,
+      content: doc.content,
+      themeId: doc.themeId,
+      codeThemeId: doc.codeThemeId,
+      customCss: doc.customCss,
+      format: { ...DEFAULT_FORMAT, ...doc.format },
+      renderTick: get().renderTick + 1,
+    });
     persist(get);
   },
 

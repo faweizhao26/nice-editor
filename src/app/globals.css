@@ -1018,6 +1018,78 @@ button {
 }
 
 /* ==========================================================================
+   手机：能打开、能看、能复制就行（写文章还是在电脑上）
+   ========================================================================== */
+@media (max-width: 620px) {
+  .navbar {
+    padding: 0 8px;
+    gap: 8px;
+  }
+  .navbar-actions {
+    overflow-x: auto;
+    flex: 0 0 auto;
+  }
+  /* 手机上顶栏只留「复制到公众号」，其余入口都在左侧图标栏里 */
+  .navbar-actions .nav-btn:not(.nav-btn-primary) {
+    display: none;
+  }
+  .title-input {
+    font-size: 13px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .rail {
+    width: 52px;
+  }
+  .rail-label {
+    display: none;
+  }
+  .panel {
+    left: 52px;
+    width: min(268px, calc(100vw - 52px));
+  }
+
+  /* 复制条从右侧竖排改成底部横排，把宽度还给预览 */
+  .pane-body-preview {
+    flex-direction: column;
+  }
+  .copy-bar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .copy-btn {
+    width: auto;
+    padding: 7px 12px;
+  }
+
+  .preview-scroll {
+    padding: 12px 8px 0;
+  }
+  .preview-stage {
+    padding: 14px 0;
+    border-radius: 8px;
+  }
+  .preview-stage-pc {
+    width: 677px;
+  }
+  .workbench.is-pc .pane-editor {
+    flex: 0 1 auto;
+  }
+  .statusbar {
+    gap: 10px;
+    font-size: 11px;
+    padding: 0 10px;
+  }
+}
+
+/* ==========================================================================
    打印 / 导出 PDF：只留正文
    ========================================================================== */
 @media print {

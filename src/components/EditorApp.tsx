@@ -7,8 +7,9 @@ import { useEditor, type PanelId } from "@/store/editor";
 import { createParser } from "@/lib/markdown";
 import { buildStyleStack } from "@/lib/themes";
 import { hasMath, typesetMath } from "@/lib/mathjax";
-import { buildRichHtml, copyRichText, type CopyTarget } from "@/lib/inline";
+import { buildRichHtml, copyPlainText, copyRichText, type CopyTarget } from "@/lib/inline";
 import { buildStandaloneHtml, downloadFile, pickMarkdownFile } from "@/lib/storage";
+import { buildShareUrl, clearShareHash, readShareFromLocation, shareUrlHint } from "@/lib/share";
 import { formatMarkdown } from "@/lib/formatDoc";
 
 import MdEditor from "./MdEditor";
@@ -57,6 +58,7 @@ export default function EditorApp() {
   const hydrate = useEditor((s) => s.hydrate);
   const newDocument = useEditor((s) => s.newDocument);
   const loadSample = useEditor((s) => s.loadSample);
+  const loadShared = useEditor((s) => s.loadShared);
 
   const [editorOpen, setEditorOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
@@ -81,16 +83,28 @@ export default function EditorApp() {
   const syncing = useRef(false);
   const toastTimer = useRef<number | undefined>(undefined);
 
-  /* ---------------- 初始化：读本地草稿与偏好 ---------------- */
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
+  /* ---------------- Toast ---------------- */
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2800);
   }, []);
+
+  /* ---------------- 初始化：读本地草稿与偏好，并处理分享链接 ---------------- */
+  useEffect(() => {
+    hydrate();
+    const shared = readShareFromLocation();
+    if (shared) {
+      loadShared(shared);
+      clearShareHash();
+      showToast(`已载入分享的文章「${shared.title}」`);
+    }
+  }, [hydrate, loadShared, showToast]);
+
+  /* 窄屏（手机）默认收起面板，否则面板会把内容全盖住 */
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 980) closePanel();
+  }, [closePanel]);
 
   /* ---------------- Markdown → HTML ---------------- */
   const deferredContent = useDeferredValue(content);
@@ -202,6 +216,17 @@ export default function EditorApp() {
     window.setTimeout(() => document.body.classList.remove("printing"), 800);
   }, []);
 
+  /** 生成分享链接：正文 + 主题 + 格式全部编码进 URL 的 fragment */
+  const handleShare = useCallback(async () => {
+    const url = buildShareUrl({ title, content, themeId, codeThemeId, customCss, format });
+    const ok = await copyPlainText(url);
+    if (!ok) {
+      showToast("复制失败，请手动从地址栏复制");
+      return;
+    }
+    showToast(shareUrlHint(url) ?? `分享链接已复制（${url.length} 字符），发给同事点开即恢复全文`);
+  }, [title, content, themeId, codeThemeId, customCss, format, showToast]);
+
   const actions: PanelActions = {
     onImport: handleImport,
     onExportMd: handleExportMd,
@@ -220,6 +245,7 @@ export default function EditorApp() {
       newDocument();
       showToast("已清空");
     },
+    onShare: handleShare,
     onCopy: handleCopy,
   };
 
