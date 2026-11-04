@@ -15,6 +15,7 @@ export { CODE_THEMES, DEFAULT_CODE_THEME_ID, getCodeThemeCss, scopeCodeTheme, ty
 import { BASE_CSS } from "./base";
 import { getTheme } from "./builtin";
 import { getCodeThemeCss } from "./codeThemes";
+import { forceImportant } from "./important";
 import { buildFormatCss, type FormatState } from "../format";
 
 export interface StyleStack {
@@ -49,6 +50,9 @@ export const MAC_CODE_CSS = `#nice pre.custom {
 /**
  * 组装预览 / 复制用的完整 CSS。
  * 顺序即优先级：base(结构) → theme(视觉) → format(用户微调) → code(代码高亮) → mac → custom(最后兜底)
+ *
+ * ⚠️ 自定义层要过一遍 `forceImportant`：只靠顺序压不住更具体的选择器，
+ * 详见 important.ts 里的说明。
  */
 export function buildStyleStack(s: StyleStack): { preview: string; inline: string } {
   const theme = getTheme(s.themeId);
@@ -59,7 +63,7 @@ export function buildStyleStack(s: StyleStack): { preview: string; inline: strin
     buildFormatCss(s.format),
     getCodeThemeCss(s.codeThemeId),
     s.isMacCode ? MAC_CODE_CSS : "",
-    s.customCss || "",
+    forceImportant(s.customCss || ""),
   ];
   const inline = parts.filter(Boolean).join("\n\n");
   return { preview: inline, inline };

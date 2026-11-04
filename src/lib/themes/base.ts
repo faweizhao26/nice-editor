@@ -155,19 +155,34 @@ export const BASE_CSS = `
 }
 
 /* ---------- 脚注 / 参考资料 ---------- */
+/* 标题文字由 ::before 提供（mdnice 的做法），这样用户的自定义 CSS 里
+   #nice .footnotes-sep::before { content: "…" } 能直接换掉文案。
+   原来是 display:none + 单独一个 .footnotes-title 元素，用户想改文案
+   只能去猜 .footnotes-title，且 ::before 永远不显示。
+   ⚠️ 本文件是反引号模板字符串，注释里不要出现反引号。 */
 #nice .footnotes-sep {
-  display: none;
+  display: block;
+  margin: 24px 0 8px;
+  padding: 0;
+  border: none;
+}
+#nice .footnotes-sep::before {
+  content: "参考资料";
+  display: inline-block;
+  padding-left: 8px;
+  border-left: 4px solid currentColor;
+  font-size: 15px;
+  font-weight: 700;
 }
 #nice .footnotes {
   display: block;
   font-size: 13px;
   line-height: 1.7;
-  margin-top: 24px;
+  margin-top: 8px;
 }
+/* 保留 .footnotes-title 的规则，兼容仍引用它的主题；元素本身已不再输出 */
 #nice .footnotes-title {
-  font-size: 14px;
-  margin: 0 0 8px;
-  font-weight: 600;
+  display: none;
 }
 #nice .footnotes-list {
   margin: 0;

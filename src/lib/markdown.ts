@@ -250,7 +250,7 @@ function linkFoot(md: MarkdownIt) {
           `<li class="nice-footnote-item"><span class="footnote-num">[${i + 1}] </span><span class="footnote-content">${url}</span></li>`,
       )
       .join("");
-    return `${html}<h3 class="footnotes-sep"></h3><section class="footnotes"><h4 class="footnotes-title">参考资料</h4><ol class="footnotes-list">${items}</ol></section>`;
+    return `${html}<h3 class="footnotes-sep"></h3><section class="footnotes"><ol class="footnotes-list">${items}</ol></section>`;
   };
 }
 
@@ -422,7 +422,7 @@ function footnote(md: MarkdownIt) {
   md.renderer.rules.footnote_ref = (tokens, idx, options, env, self) =>
     `<sup class="footnote-ref">${self.rules.footnote_caption(tokens, idx, options, env, self)}</sup>`;
   md.renderer.rules.footnote_block_open = () =>
-    '<h3 class="footnotes-sep"></h3>\n<section class="footnotes">\n<h4 class="footnotes-title">脚注</h4>\n<ol class="footnotes-list">\n';
+    '<h3 class="footnotes-sep"></h3>\n<section class="footnotes">\n<ol class="footnotes-list">\n';
   md.renderer.rules.footnote_block_close = () => "</ol>\n</section>\n";
   md.renderer.rules.footnote_open = (tokens, idx, options, env, self) => {
     const id = self.rules.footnote_anchor_name(tokens, idx, options, env, self);
