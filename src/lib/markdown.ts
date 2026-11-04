@@ -67,14 +67,24 @@ function liSection(md: MarkdownIt) {
   md.renderer.rules.list_item_close = () => "</section></li>";
 }
 
-/** 多级引用加 class：nice-multiquote-1 / -2 / -3 */
+/**
+ * 多级引用加 class。
+ *
+ * ⚠️ 同时输出带前缀和不带前缀两套类名：
+ *   - `nice-multiquote-N` —— 本编辑器主题用
+ *   - `multiquote-N`      —— **mdnice 的类名**，用户从 mdnice 搬过来的
+ *     自定义 CSS（`#nice .multiquote-1 { … }`）靠它才能匹配上。
+ * 只写带前缀的那套会导致老 CSS 静默失配 —— 引用块样式不生效，
+ * 显示成编辑器默认的灰色块，很难查。
+ */
 function multiquote(md: MarkdownIt) {
   const walk = (tokens: Token[]) => {
     let level = 0;
     for (const token of tokens) {
       if (token.type === "blockquote_open") {
         level += 1;
-        token.attrJoin("class", `nice-multiquote nice-multiquote-${Math.min(level, 3)}`);
+        const n = Math.min(level, 3);
+        token.attrJoin("class", `nice-multiquote nice-multiquote-${n} multiquote-${n}`);
       }
       if (token.type === "blockquote_close") level -= 1;
       if (token.children) walk(token.children);
@@ -388,13 +398,15 @@ function math(md: MarkdownIt) {
   );
 
   // 包一层带 data-formula 的容器：复制到知乎/掘金时需要拿回原始 LaTeX
+  // class 里同时带上 mdnice 的 `inline-equation` / `block-equation`，
+  // 否则从 mdnice 搬来的自定义 CSS（`#nice .inline-equation svg { … }`）匹配不上
   md.renderer.rules.math_inline = (tokens, idx) => {
     const latex = tokens[idx].content;
-    return `<span class="nice-math nice-math-inline" data-formula="${escapeAttr(latex)}">$${latex}$</span>`;
+    return `<span class="nice-math nice-math-inline inline-equation" data-formula="${escapeAttr(latex)}">$${latex}$</span>`;
   };
   md.renderer.rules.math_block = (tokens, idx) => {
     const latex = tokens[idx].content;
-    return `<section class="nice-math nice-math-block" data-formula="${escapeAttr(latex)}">$$${latex}$$</section>\n`;
+    return `<section class="nice-math nice-math-block block-equation" data-formula="${escapeAttr(latex)}">$$${latex}$$</section>\n`;
   };
 }
 
