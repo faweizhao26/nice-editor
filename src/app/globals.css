@@ -849,10 +849,13 @@ button {
   overflow: auto;
   padding: 20px 22px 0;
 }
-/* 手机预览的卡片是固定 375px，两侧内边距收窄一点让它尽量完整可见，
-   少一次横向滚动 */
+/* 手机预览的卡片是固定 375px，两侧内边距收到 4px，让 375px 在常见面板
+   宽度下放得下，不出现横向滚动条。
+   （原来写死 12px：面板 392px 时 375+24=399，差 7px → 冒出一条横向滚动条。
+   注意不能用百分比/clamp 自适应：本元素是 position:absolute; inset:0，
+   padding 的百分比是相对**包含块**而不是自身宽度算的，算出来永远是上限值。） */
 .preview-scroll:has(.preview-stage-phone) {
-  padding: 20px 12px 0;
+  padding: 20px 4px 0;
 }
 
 .preview-stage {
