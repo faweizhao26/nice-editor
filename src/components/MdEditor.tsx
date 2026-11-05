@@ -25,9 +25,11 @@ interface Props {
   onChange: (v: string) => void;
   onViewReady?: (view: EditorView | null) => void;
   onLinkToFoot?: () => void;
+  /** 一键格式化（快捷键 Mod-Alt-F，与 mdnice 的 Ctrl/Cmd+Alt+F 一致） */
+  onFormatDoc?: () => void;
 }
 
-export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot }: Props) {
+export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot, onFormatDoc }: Props) {
   const ref = useRef<ReactCodeMirrorRef>(null);
 
   useEffect(() => {
@@ -91,10 +93,18 @@ export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot }:
               return true;
             },
           },
+          {
+            key: "Mod-Alt-f",
+            preventDefault: true,
+            run: () => {
+              onFormatDoc?.();
+              return true;
+            },
+          },
         ]),
       ),
     ],
-    [onLinkToFoot],
+    [onLinkToFoot, onFormatDoc],
   );
 
   return (

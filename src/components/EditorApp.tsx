@@ -233,8 +233,13 @@ export default function EditorApp() {
     onExportHtml: handleExportHtml,
     onPrint: handlePrint,
     onFormatDoc: () => {
-      setContent(formatMarkdown(content));
-      showToast("已格式化");
+      const next = formatMarkdown(content);
+      if (next === content) {
+        showToast("已经是最规整的格式了，没有需要改动的地方");
+        return;
+      }
+      setContent(next);
+      showToast("已格式化（⌘/Ctrl + Z 可撤销）");
     },
     onLinkToFoot: () => {
       patch({ linkToFoot: !linkToFoot });
@@ -363,6 +368,7 @@ export default function EditorApp() {
                   onChange={setContent}
                   onViewReady={setEditorView}
                   onLinkToFoot={actions.onLinkToFoot}
+                  onFormatDoc={actions.onFormatDoc}
                 />
               </div>
             </div>

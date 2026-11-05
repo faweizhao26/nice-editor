@@ -355,9 +355,14 @@ function FunctionPanel({ actions }: { actions: PanelActions }) {
         </ul>
       </Section>
 
-      <Section title="处理">
+      <Section
+        title="处理"
+        desc="一键格式化：中英文/数字之间加空格、中文与 $ 之间加空格、规范标题与列表标记、整理空行。代码块内容原样保留。快捷键 ⌥⌘F / Ctrl+Alt+F。"
+      >
         <BtnRow>
-          <Btn onClick={actions.onFormatDoc}>格式化文档</Btn>
+          <Btn variant="primary" onClick={actions.onFormatDoc}>
+            一键格式化
+          </Btn>
           <Btn onClick={actions.onLinkToFoot}>外链转脚注</Btn>
           <Btn variant="danger" onClick={actions.onClear}>
             清空内容
