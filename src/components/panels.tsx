@@ -84,10 +84,30 @@ function CodeThemePanel() {
   const codeThemeId = useEditor((s) => s.codeThemeId);
   const isMacCode = useEditor((s) => s.isMacCode);
   const patch = useEditor((s) => s.patch);
+  const customCss = useEditor((s) => s.customCss);
+
+  /**
+   * 自定义 CSS 是不是已经把代码块配色接管了？
+   *
+   * 自定义层是最后兜底层（还会统一补 `!important`），所以只要里面有涉及
+   * 代码块的规则，代码主题就会被完全盖住 —— 切换主题时外观**一点都不变**。
+   * 不说清楚的话用户只会以为这个面板坏了。
+   *
+   * `\b` 边界是必要的：否则 `.prefix` 里的 "pre" 会误判。
+   */
+  const codeOverridden = /\bhljs\b|\bpre\b/i.test(customCss || "");
 
   return (
     <>
       <Section title="代码主题" desc="代码块的高亮配色，取自 highlight.js 官方主题。">
+        {codeOverridden ? (
+          <p className="ui-warn">
+            你的<b>自定义 CSS</b> 里已经写了代码块的规则（涉及 <b>pre</b> / <b>hljs</b>），
+            它会盖住这里的主题配色 —— 切换下面任意一套都<b>不会改变外观</b>。
+            想让这个面板生效，先把自定义 CSS 里 <b>pre</b> / <b>hljs</b> 相关的颜色规则删掉。
+          </p>
+        ) : null}
+
         <div className="code-list">
           {CODE_THEMES.map((t) => {
             const { bg, fg } = codeSwatch(t.css);
