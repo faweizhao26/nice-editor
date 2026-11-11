@@ -5,6 +5,7 @@ import { DEFAULT_THEME_ID } from "./themes/builtin";
 /**
  * 纯前端持久化：全部落在 localStorage，不依赖任何后端。
  *  - nice:drafts   草稿列表（含正文），最多保留 50 篇
+ *  - nice:history  本地历史快照（自动留档，可回滚），最多 30 份
  *  - nice:settings 主题 / 格式 / 视图等偏好
  *  - nice:current  当前正在编辑的内容，刷新不丢
  */
@@ -21,6 +22,25 @@ export interface Draft {
   updatedAt: number;
 }
 
+/**
+ * 本地历史快照。
+ *
+ * 为什么需要：`保存当前草稿` 是**按标题覆盖**的 —— 一键格式化、清空、手滑之后，
+ * 草稿里的旧版本就没了，只有会话内的 ⌘Z 能救。快照是自动留的，不依赖用户记得点保存。
+ */
+export interface Snapshot {
+  id: string;
+  ts: number;
+  title: string;
+  content: string;
+  themeId: string;
+  codeThemeId: string;
+  customCss: string;
+  format: FormatState;
+  /** 为什么留的这份快照，显示在列表里（如「格式化前」「清空前」「自动」） */
+  reason: string;
+}
+
 export interface Settings {
   themeId: string;
   codeThemeId: string;
@@ -35,8 +55,10 @@ export interface Settings {
 
 export const SETTINGS_KEY = "nice:settings";
 export const DRAFTS_KEY = "nice:drafts";
+export const HISTORY_KEY = "nice:history";
 export const CURRENT_KEY = "nice:current";
 const MAX_DRAFTS = 50;
+const MAX_HISTORY = 30;
 
 export const DEFAULT_SETTINGS: Settings = {
   themeId: DEFAULT_THEME_ID,
@@ -97,6 +119,27 @@ export function saveDrafts(list: Draft[]): void {
 export function newDraftId(): string {
   return `d_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
+
+export function loadHistory(): Snapshot[] {
+  if (!canStore()) return [];
+  const list = safeParse<Snapshot[]>(window.localStorage.getItem(HISTORY_KEY), []);
+  return Array.isArray(list) ? list : [];
+}
+
+export function saveHistory(list: Snapshot[]): void {
+  if (!canStore()) return;
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
+  } catch {
+    /* 配额满了：历史是锦上添花，不能因为它把正文存不进去 */
+  }
+}
+
+export function newSnapshotId(): string {
+  return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export const HISTORY_LIMIT = MAX_HISTORY;
 
 export function loadCurrent(): { title: string; content: string } | null {
   if (!canStore()) return null;

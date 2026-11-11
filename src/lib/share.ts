@@ -47,12 +47,33 @@ interface Compact {
   f?: Partial<FormatState>;
 }
 
+/**
+ * 分享前把自定义 CSS 瘦一遍。
+ *
+ * 实测（v7 CSS 7150 字符 + 441 字正文）：链接 6297 字符。
+ *   - 去注释 + 去行首缩进 → 4451（省 29%）
+ *   - 再压成单行            → 4165（只再多省 5%）
+ * 所以这里**只做温和处理**：去注释、去行首缩进、折叠多余空行，
+ * 保留换行与选择器结构 —— 接收方在 CSS 输入框里还能看懂，
+ * 而收益已经拿到 87%。不做单行 minify。
+ *
+ * 代价：注释会丢。所以 `loadShared` 里加了一层保护 ——
+ * 如果本地已有等价 CSS（压缩后相同），就保留本地那份，注释不丢。
+ */
+export function compactCss(css: string): string {
+  return css
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function encodeShare(doc: ShareDoc): string {
   const compact: Compact = { c: doc.content };
   if (doc.title) compact.t = doc.title;
   if (doc.themeId && doc.themeId !== DEFAULT_THEME_ID) compact.th = doc.themeId;
   if (doc.codeThemeId && doc.codeThemeId !== DEFAULT_CODE_THEME_ID) compact.ct = doc.codeThemeId;
-  if (doc.customCss) compact.css = doc.customCss;
+  if (doc.customCss) compact.css = compactCss(doc.customCss);
 
   const formatDiff: Record<string, unknown> = {};
   (Object.keys(DEFAULT_FORMAT) as (keyof FormatState)[]).forEach((key) => {

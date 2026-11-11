@@ -24,6 +24,28 @@
 const CJK = "\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff";
 
 /**
+ * 隐形字符：从网页 / Word / PDF 复制素材时经常带进来，屏幕上完全看不见，
+ * 但在微信里会变成莫名的空格、断行、甚至让 `**加粗**` 这类标记失效。
+ *   U+200B 零宽空格 / U+200C 零宽不连字 / U+200D 零宽连字
+ *   U+2060 词连接符 / U+FEFF BOM（也常被当零宽不换行空格用）
+ */
+const INVISIBLE_RE = /[\u200b-\u200d\u2060\ufeff]/g;
+
+/**
+ * 看起来像空格、但不是 ASCII 空格的字符：
+ *   U+00A0 不换行空格（网页里的 `&nbsp;`）
+ *   U+3000 全角空格（中文输入法下的空格键）
+ * 统一成普通空格 —— 否则「中英文加空格」这类规则会认不出来。
+ */
+const WIDE_SPACE_RE = /[\u00a0\u3000]/g;
+
+/**
+ * 行分隔符：U+2028 / U+2029 在 JS 里算换行，但从网页复制过来时
+ * 我们的 `split("\n")` 认不出它。先在整篇层面换成 `\n`。
+ */
+const LINE_SEP_RE = /[\u2028\u2029]/g;
+
+/**
  * 行内需要**保护**、不参与加空格的片段（按顺序匹配，行内代码优先）：
  *   1. 行内代码 `` `x` ``
  *   2. 链接/图片的 `](URL)` 部分（URL 里的字符不该被空格切开）
@@ -67,7 +89,9 @@ function spaceCJK(line: string): string {
 
 /** 单行正文的规范化 */
 function normalizeProseLine(line: string): string {
-  let l = line;
+  // 先清隐形字符与「假空格」：后面的规则（行尾空格、中英文加空格）都依赖
+  // 真实的 ASCII 空格，不先统一就会漏判
+  let l = line.replace(INVISIBLE_RE, "").replace(WIDE_SPACE_RE, " ");
 
   // 行尾空格：单个是误留，**两个以上是 Markdown 硬换行**，必须保留
   if (!/[ \t]{2,}$/.test(l)) l = l.replace(/[ \t]+$/, "");
@@ -118,14 +142,16 @@ const isBlank = (l: string) => l.trim() === "";
  * 格式化整篇 Markdown。
  *
  * 处理项：
+ *   - **清隐形字符**：零宽字符（U+200B/200C/200D/2060/FEFF）、不换行空格（U+00A0）、
+ *     全角空格（U+3000）、U+2028/2029 行分隔符 —— 从网页复制素材时最常见的坑
  *   - 中英文 / 数字之间加空格、中文与 `$` 之间加空格
  *   - 标题、列表、引用、表格分隔行的标记规范化
- *   - 围栏代码块**逐字保留**
+ *   - 围栏代码块**逐字保留**（隐形字符也不清，保证「代码不动」这条承诺无例外）
  *   - 标题 / 表格 / 分隔线 / 代码块前后补空行，连续空行折叠成一个
  *   - 文件末尾恰好一个换行
  */
 export function formatMarkdown(input: string): string {
-  const src = input.replace(/\r\n?/g, "\n").split("\n");
+  const src = input.replace(/\r\n?/g, "\n").replace(LINE_SEP_RE, "\n").split("\n");
 
   /* ---- 第一遍：逐行规范化，跟踪围栏状态 ---- */
   const stage1: string[] = [];

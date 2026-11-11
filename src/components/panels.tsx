@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useEditor, type PanelId } from "@/store/editor";
 import { ALL_THEMES, CODE_THEMES, getTheme } from "@/lib/themes";
 import { FORMAT_PRESETS, FONT_STACKS, contrastRatio, type FormatState } from "@/lib/format";
+import { HISTORY_LIMIT } from "@/lib/storage";
+import type { TextStats } from "@/lib/stats";
 import { Btn, BtnRow, ColorField, Empty, Field, Section, SelectField, SliderField, Toggle } from "./ui";
 
 export interface PanelActions {
@@ -15,6 +18,10 @@ export interface PanelActions {
   onClear: () => void;
   onShare: () => void;
   onCopy: (target: "wechat" | "zhihu" | "juejin" | "csdn") => void;
+  /** 表格：插入指定行列数 */
+  onInsertTable: (rows: number, cols: number) => void;
+  /** 表格：给光标所在的表格增删行列 */
+  onTableOp: (op: "row" | "col" | "delRow" | "delCol") => void;
 }
 
 /** 从 highlight.js 主题 CSS 里抠出底色和字色，用来画色卡 */
@@ -259,6 +266,10 @@ function FilePanel({ actions }: { actions: PanelActions }) {
   const saveDraft = useEditor((s) => s.saveDraft);
   const openDraft = useEditor((s) => s.openDraft);
   const removeDraft = useEditor((s) => s.removeDraft);
+  const history = useEditor((s) => s.history);
+  const snapshot = useEditor((s) => s.snapshot);
+  const restoreSnapshot = useEditor((s) => s.restoreSnapshot);
+  const removeSnapshot = useEditor((s) => s.removeSnapshot);
   const newDocument = useEditor((s) => s.newDocument);
   const loadSample = useEditor((s) => s.loadSample);
 
@@ -322,42 +333,92 @@ function FilePanel({ actions }: { actions: PanelActions }) {
           </ul>
         )}
       </Section>
+
+      <Section
+        title="本地历史"
+        desc={`自动留档，最多 ${HISTORY_LIMIT} 份。格式化、清空、载入别的内容之前都会先存一份，手滑了能回滚。`}
+      >
+        <BtnRow>
+          <Btn onClick={() => snapshot("手动")}>现在存一份</Btn>
+        </BtnRow>
+        {history.length === 0 ? (
+          <Empty>还没有历史快照</Empty>
+        ) : (
+          <ul className="draft-list">
+            {history.map((h) => (
+              <li key={h.id} className="draft-item">
+                <button
+                  type="button"
+                  className="draft-open"
+                  onClick={() => {
+                    const when = new Date(h.ts).toLocaleString("zh-CN", { hour12: false });
+                    if (window.confirm(`回滚到「${h.title}」（${when}）？\n\n当前内容会先自动存一份，回滚错了还能再回滚回来。`)) {
+                      restoreSnapshot(h.id);
+                    }
+                  }}
+                >
+                  <span className="draft-title">{h.title}</span>
+                  <span className="draft-meta">
+                    {h.reason} · {new Date(h.ts).toLocaleString("zh-CN", { hour12: false })} ·{" "}
+                    {h.content.length} 字符
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="draft-del"
+                  title="删除这份快照"
+                  onClick={() => removeSnapshot(h.id)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </>
   );
 }
 
-function FunctionPanel({ actions }: { actions: PanelActions }) {
-  const content = useEditor((s) => s.content);
-  const chars = content.length;
-  const noSpace = content.replace(/\s/g, "").length;
-  const lines = content ? content.split("\n").length : 0;
+function FunctionPanel({ actions, stats }: { actions: PanelActions; stats: TextStats }) {
+  const [tableRows, setTableRows] = useState(2);
+  const [tableCols, setTableCols] = useState(3);
 
   return (
     <>
-      <Section title="统计">
+      <Section
+        title="统计"
+        desc="字数按「渲染后的正文」算，不含 # 、** 、表格竖线、URL 这些 Markdown 语法标记。"
+      >
         <ul className="stat-list">
           <li>
-            <span>行数</span>
-            <b>{lines}</b>
+            <span>正文字数</span>
+            <b>{stats.chars}</b>
           </li>
           <li>
-            <span>字符数</span>
-            <b>{chars}</b>
+            <span>其中中文</span>
+            <b>{stats.cjk}</b>
           </li>
           <li>
-            <span>不计空白</span>
-            <b>{noSpace}</b>
+            <span>英文单词</span>
+            <b>{stats.words}</b>
           </li>
           <li>
             <span>预计阅读</span>
-            <b>{Math.max(1, Math.round(noSpace / 400))} 分钟</b>
+            <b>{stats.minutes} 分钟</b>
+          </li>
+          <li>
+            <span>源文档</span>
+            <b>
+              {stats.source} 字符 / {stats.lines} 行
+            </b>
           </li>
         </ul>
       </Section>
 
       <Section
         title="处理"
-        desc="一键格式化：中英文/数字之间加空格、中文与 $ 之间加空格、规范标题与列表标记、整理空行。代码块内容原样保留。快捷键 ⌥⌘F / Ctrl+Alt+F。"
+        desc="一键格式化：清隐形字符（零宽字符 / 不换行空格 / 全角空格）、中英文之间加空格、规范标题与列表标记、整理空行。代码块内容原样保留。快捷键 ⌥⌘F / Ctrl+Alt+F。"
       >
         <BtnRow>
           <Btn variant="primary" onClick={actions.onFormatDoc}>
@@ -367,6 +428,20 @@ function FunctionPanel({ actions }: { actions: PanelActions }) {
           <Btn variant="danger" onClick={actions.onClear}>
             清空内容
           </Btn>
+        </BtnRow>
+      </Section>
+
+      <Section title="表格" desc="插入指定行列数；把光标放进已有表格里，就能增删行列（表头和分隔行不会被删）。">
+        <SliderField label="行数" value={tableRows} min={1} max={20} unit=" 行" onChange={setTableRows} />
+        <SliderField label="列数" value={tableCols} min={1} max={10} unit=" 列" onChange={setTableCols} />
+        <BtnRow>
+          <Btn onClick={() => actions.onInsertTable(tableRows, tableCols)}>插入表格</Btn>
+        </BtnRow>
+        <BtnRow>
+          <Btn onClick={() => actions.onTableOp("row")}>加一行</Btn>
+          <Btn onClick={() => actions.onTableOp("col")}>加一列</Btn>
+          <Btn onClick={() => actions.onTableOp("delRow")}>删一行</Btn>
+          <Btn onClick={() => actions.onTableOp("delCol")}>删一列</Btn>
         </BtnRow>
       </Section>
 
@@ -435,6 +510,7 @@ const SHORTCUTS: [string, string][] = [
   ["⌘/Ctrl + ⇧ + C", "代码块"],
   ["⌘/Ctrl + ⇧ + M", "公式块"],
   ["⌘/Ctrl + ⇧ + T", "表格"],
+  ["⌘/Ctrl + ⌥ + F", "一键格式化"],
   ["⌘/Ctrl + F", "查找替换"],
 ];
 
@@ -493,10 +569,12 @@ function HelpPanel() {
 export function Panel({
   id,
   actions,
+  stats,
   view,
 }: {
   id: PanelId;
   actions: PanelActions;
+  stats: TextStats;
   view: { editorOpen: boolean; previewOpen: boolean; onToggleEditor: () => void; onTogglePreview: () => void };
 }) {
   switch (id) {
@@ -509,7 +587,7 @@ export function Panel({
     case "format":
       return <FormatPanel />;
     case "function":
-      return <FunctionPanel actions={actions} />;
+      return <FunctionPanel actions={actions} stats={stats} />;
     case "view":
       return <ViewPanel {...view} />;
     case "help":

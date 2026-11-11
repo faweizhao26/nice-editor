@@ -11,6 +11,14 @@ import { buildRichHtml, copyPlainText, copyRichText, type CopyTarget } from "@/l
 import { buildStandaloneHtml, downloadFile, pickMarkdownFile } from "@/lib/storage";
 import { buildShareUrl, clearShareHash, readShareFromLocation, shareUrlHint } from "@/lib/share";
 import { formatMarkdown } from "@/lib/formatDoc";
+import { textStats } from "@/lib/stats";
+import {
+  insertTable,
+  tableAddColumn,
+  tableAddRow,
+  tableDeleteColumn,
+  tableDeleteRow,
+} from "./editor/commands";
 
 import MdEditor from "./MdEditor";
 import PreviewPane from "./PreviewPane";
@@ -59,6 +67,7 @@ export default function EditorApp() {
   const newDocument = useEditor((s) => s.newDocument);
   const loadSample = useEditor((s) => s.loadSample);
   const loadShared = useEditor((s) => s.loadShared);
+  const snapshot = useEditor((s) => s.snapshot);
 
   const [editorOpen, setEditorOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
@@ -190,10 +199,11 @@ export default function EditorApp() {
   const handleImport = useCallback(async () => {
     const file = await pickMarkdownFile();
     if (!file) return;
+    snapshot("导入前");
     setContent(file.content);
     setTitle(file.name.replace(/\.(md|markdown|txt)$/i, ""));
     showToast(`已导入 ${file.name}`);
-  }, [setContent, setTitle, showToast]);
+  }, [setContent, setTitle, showToast, snapshot]);
 
   const handleExportMd = useCallback(() => {
     downloadFile(`${title || "未命名文档"}.md`, content, "text/markdown;charset=utf-8");
@@ -238,6 +248,7 @@ export default function EditorApp() {
         showToast("已经是最规整的格式了，没有需要改动的地方");
         return;
       }
+      snapshot("格式化前");
       setContent(next);
       showToast("已格式化（⌘/Ctrl + Z 可撤销）");
     },
@@ -246,19 +257,48 @@ export default function EditorApp() {
       showToast(linkToFoot ? "已关闭外链转脚注" : "已开启外链转脚注");
     },
     onClear: () => {
-      if (!window.confirm("确定清空当前内容？此操作不可撤销。")) return;
+      if (!window.confirm("确定清空当前内容？\n\n清空前的内容会留一份在「文件 → 本地历史」里，可以回滚。")) return;
+      snapshot("清空前");
       newDocument();
-      showToast("已清空");
+      showToast("已清空（可在「文件 → 本地历史」里回滚）");
+    },
+    onInsertTable: (rows: number, cols: number) => {
+      const view = editorView;
+      if (!view) return;
+      insertTable(view, rows, cols);
+      showToast(`已插入 ${rows} × ${cols} 表格`);
+    },
+    onTableOp: (op) => {
+      const view = editorView;
+      if (!view) return;
+      const run =
+        op === "row" ? tableAddRow : op === "col" ? tableAddColumn : op === "delRow" ? tableDeleteRow : tableDeleteColumn;
+      const ok = run(view);
+      if (!ok) {
+        showToast("请把光标放进表格里（表头与分隔行不能删，至少留一列、一行数据）");
+        return;
+      }
+      showToast(
+        op === "row" ? "已加一行" : op === "col" ? "已加一列" : op === "delRow" ? "已删一行" : "已删一列",
+      );
     },
     onShare: handleShare,
     onCopy: handleCopy,
   };
 
-  const stats = useMemo(() => {
-    const chars = content.length;
-    const lines = content ? content.split("\n").length : 0;
-    return { chars, lines, words: content.replace(/\s/g, "").length };
-  }, [content]);
+  /**
+   * 统计按**渲染后**的正文算（`html` 上面已经算好了，不重新解析 Markdown）。
+   * 用 `content.length` 会把 `#`、`**`、表格竖线、URL 全算进去 —— 实测虚高 74%。
+   */
+  const stats = useMemo(() => textStats(html, content), [html, content]);
+
+  /* ---------------- 自动历史快照 ---------------- */
+  // 每 3 分钟留一份，避免误操作丢掉整篇文章。内容没变时 snapshot 内部会跳过。
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = window.setInterval(() => snapshot("自动"), 3 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [hydrated, snapshot]);
 
   if (!hydrated) {
     return (
@@ -341,6 +381,7 @@ export default function EditorApp() {
               <Panel
                 id={activePanel}
                 actions={actions}
+                stats={stats}
                 view={{
                   editorOpen,
                   previewOpen,
@@ -426,9 +467,10 @@ export default function EditorApp() {
 
       {/* ---------------- 状态栏 ---------------- */}
       <footer className="statusbar">
+        <span className="status-item">{stats.chars} 字</span>
+        <span className="status-item">中文 {stats.cjk}</span>
         <span className="status-item">{stats.lines} 行</span>
-        <span className="status-item">{stats.chars} 字符</span>
-        <span className="status-item">{stats.words} 不计空白</span>
+        <span className="status-item">约 {stats.minutes} 分钟</span>
         <span className="status-spacer" />
         <label className="status-toggle">
           <input

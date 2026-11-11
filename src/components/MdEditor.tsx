@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView, keymap } from "@codemirror/view";
@@ -32,11 +32,24 @@ interface Props {
 export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot, onFormatDoc }: Props) {
   const ref = useRef<ReactCodeMirrorRef>(null);
 
-  useEffect(() => {
-    onViewReady?.(ref.current?.view ?? null);
-    return () => onViewReady?.(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /**
+   * 拿到 `EditorView` 唯一可靠的方式是 `onCreateEditor`。
+   *
+   * ⚠️ 不要用 `ref.current?.view`：`@uiw/react-codemirror` 是用
+   * `useImperativeHandle` 暴露 view 的，组件挂载那一刻它可能还没赋值，
+   * 而写在 `useEffect(..., [])` 里的代码只跑一次 —— 拿不到就永远是 null。
+   * 后果是所有依赖 view 的功能（同步滚动、表格增删行列）**静默失效**，
+   * 点了没反应也不报错。
+   */
+  const handleCreateEditor = useCallback(
+    (view: EditorView) => {
+      onViewReady?.(view);
+    },
+    [onViewReady],
+  );
+
+  /** 卸载时清掉引用，避免留着已经销毁的 view */
+  useEffect(() => () => onViewReady?.(null), [onViewReady]);
 
   /**
    * 让 CodeMirror 的默认配色（选区、光标、补全弹层）跟着系统的明暗模式走。
@@ -117,6 +130,7 @@ export default function MdEditor({ value, onChange, onViewReady, onLinkToFoot, o
       height="100%"
       extensions={extensions}
       onChange={onChange}
+      onCreateEditor={handleCreateEditor}
       theme="none"
       basicSetup={{
         lineNumbers: false,
