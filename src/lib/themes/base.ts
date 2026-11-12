@@ -189,13 +189,40 @@ export const BASE_CSS = `
   padding-left: 0;
   list-style: none;
 }
-#nice .nice-footnote-item {
+/* ⚠️ 类名必须是 .footnote-item：渲染出的是 <li class="footnote-item">，
+   写成 .nice-footnote-item 永远匹配不到（以前就是，规则是死的）。 */
+#nice .footnote-item {
+  /* 编号和正文同一行。
+     正文被 markdown-it-footnote 包成 <p>（块级元素），不设 flex 的话
+     <p> 必然另起一行，编号就孤零零占一行 —— 而 mdnice 也是同样的
+     HTML 结构（<span class="footnote-num">[1] </span><p>…</p>），
+     它靠的就是这里的 flex + 下面的 display:inline。
+     flex-wrap 是为了多段脚注：第二段起会另起一行占满整行。 */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   list-style: none;
   margin: 4px 0;
   word-break: break-all;
 }
 #nice .footnote-num {
+  /* 只有 flex 子项才认 width —— 用户 CSS 里的 width: 7% 靠这条生效 */
+  flex: 0 0 auto;
   font-weight: 600;
+}
+#nice .footnote-item p {
+  display: inline;
+  /* ⚠️ 基准必须是 0，不能是 auto。
+     flex-wrap 的换行判定用的是「假设主尺寸」（= flex-basis），
+     写 auto 时它就是内容宽度 —— 正文一长，编号+正文放不下就整段
+     掉到下一行，编号又孤零零占一行。写 0 则恒定先放同一行再撑满。 */
+  flex: 1 1 0;
+  /* flex 子项默认 min-width:auto，长 URL 会把容器撑破 */
+  min-width: 0;
+  margin: 0;
+}
+#nice .footnote-item p + p {
+  flex-basis: 100%;
 }
 #nice .footnote-ref {
   font-size: 0.75em;
