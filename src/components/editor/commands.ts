@@ -210,17 +210,30 @@ export function insertHr(view: EditorView) {
  * ------------------------------------------------------------------ */
 export function linkToFootnote(state: EditorState): string {
   const doc = state.doc.toString();
-  const links: string[] = [];
-  const converted = doc.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, text: string, url: string) => {
-    let n = links.indexOf(url);
-    if (n === -1) {
-      links.push(url);
-      n = links.length - 1;
-    }
-    return `${text}[^${n + 1}]`;
-  });
+  const links: { url: string; text: string }[] = [];
+  const converted = doc.replace(
+    /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    (_m, text: string, url: string) => {
+      let n = links.findIndex((l) => l.url === url);
+      if (n === -1) {
+        links.push({ url, text });
+        n = links.length - 1;
+      }
+      return `${text}[^${n + 1}]`;
+    },
+  );
   if (!links.length) return doc;
-  const defs = links.map((url, i) => `[^${i + 1}]: ${url}`).join("\n");
+  /**
+   * 脚注定义里要带上「链接名」：只写 URL 的话读者不知道这条指向哪。
+   * 用 <em> 包 URL 是 mdnice 的写法，这样自定义 CSS 里的
+   * `#nice .footnote-item p em { … }`（参考资料解释）才能命中。
+   */
+  const defs = links
+    .map((l, i) => {
+      const name = l.text && l.text !== l.url ? `${l.text}: ` : "";
+      return `[^${i + 1}]: ${name}<em>${l.url}</em>`;
+    })
+    .join("\n");
   return `${converted.replace(/\s+$/, "")}\n\n${defs}\n`;
 }
 

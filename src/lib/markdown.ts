@@ -189,17 +189,35 @@ function imageSize(md: MarkdownIt) {
  * 三、微信外链转脚注（可选开启）
  *     [文字](url) → 文字[1]，正文末尾自动生成「参考资料」列表
  * ------------------------------------------------------------------ */
+/** 一条外链脚注：url 是链接地址，text 是链接的文字（锚文本，即「链接名」） */
+interface FootLink {
+  url: string;
+  text: string;
+}
+
 function linkFoot(md: MarkdownIt) {
   md.core.ruler.push("link_foot_collect", (state: StateCore) => {
-    const env = state.env as { __footLinks?: string[] };
+    const env = state.env as { __footLinks?: FootLink[] };
     env.__footLinks = [];
     const walk = (tokens: Token[]) => {
-      for (const token of tokens) {
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
         if (token.type === "link_open") {
           const href = token.attrGet("href");
           const url = typeof href === "string" ? href : null;
           if (url && /^https?:\/\//i.test(url)) {
-            token.meta = { ...(token.meta ?? {}), foot: url };
+            /**
+             * 取链接的文字（锚文本）当「链接名」。
+             * link_open 自己不挂 children —— 锚文本是它后面、link_close 之前的
+             * **兄弟节点**，所以要顺着同级数组往后扫，而不是往下钻。
+             */
+            let text = "";
+            for (let j = i + 1; j < tokens.length && tokens[j].type !== "link_close"; j++) {
+              const t = tokens[j];
+              if (t.type === "text" || t.type === "code_inline") text += t.content;
+              else if (t.type === "softbreak" || t.type === "hardbreak") text += " ";
+            }
+            token.meta = { ...(token.meta ?? {}), foot: url, footText: text.trim() };
           }
         }
         if (token.children) walk(token.children);
@@ -212,13 +230,16 @@ function linkFoot(md: MarkdownIt) {
     const token = tokens[idx];
     const foot = token.meta?.foot as string | undefined;
     if (foot) {
-      const bag = env as { __footLinks?: string[] } | undefined;
+      const bag = env as { __footLinks?: FootLink[] } | undefined;
       const list = (bag ?? {}).__footLinks ?? [];
       if (bag) bag.__footLinks = list;
-      let n = list.indexOf(foot);
+      let n = list.findIndex((item) => item.url === foot);
       if (n === -1) {
-        list.push(foot);
+        list.push({ url: foot, text: (token.meta?.footText as string) ?? "" });
         n = list.length - 1;
+      } else if (!list[n].text) {
+        // 同一 URL 之前出现过但没抓到文字（少见），这里补上
+        list[n].text = (token.meta?.footText as string) ?? "";
       }
       token.attrSet("data-foot", String(n + 1));
       token.attrJoin("class", "nice-foot-link");
@@ -242,13 +263,22 @@ function linkFoot(md: MarkdownIt) {
   const originalRender = md.renderer.render.bind(md.renderer);
   md.renderer.render = (tokens, options, env) => {
     const html = originalRender(tokens, options, env);
-    const list = (env as { __footLinks?: string[] } | undefined)?.__footLinks ?? [];
+    const list = (env as { __footLinks?: FootLink[] } | undefined)?.__footLinks ?? [];
     if (!list.length) return html;
     const items = list
-      .map(
-        (url, i) =>
-          `<li class="nice-footnote-item"><span class="footnote-num">[${i + 1}] </span><span class="footnote-content">${url}</span></li>`,
-      )
+      .map((item, i) => {
+        /**
+         * 结构对齐 mdnice：<li class="footnote-item">…<p>链接名: <em>url</em></p></li>
+         *
+         * 「链接名」必须写进去 —— 只给一个 URL，读者根本不知道这条指向哪，
+         * 这也是用户报的「不显示链接名字」。
+         * 锚文本本身就是 URL（自动链接 <https://…>）或为空时不重复写名字。
+         * 类名同时给 footnote-item（mdnice 的名字）和 nice-footnote-item（老名字），
+         * 两边写的 CSS 都能命中。
+         */
+        const name = item.text && item.text !== item.url ? `${escapeHtml(item.text)}: ` : "";
+        return `<li class="footnote-item nice-footnote-item"><span class="footnote-num">[${i + 1}] </span><p>${name}<em>${escapeHtml(item.url)}</em></p></li>`;
+      })
       .join("");
     return `${html}<h3 class="footnotes-sep"></h3><section class="footnotes"><ol class="footnotes-list">${items}</ol></section>`;
   };
